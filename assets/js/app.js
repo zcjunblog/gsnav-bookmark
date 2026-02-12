@@ -1,4 +1,3 @@
-// assets/js/app.js
 import {
   createApp,
   ref,
@@ -13,71 +12,144 @@ createApp({
   setup() {
     const { weather, fetchWeather } = useWeather();
 
-    // --- 状态 ---
+    // --- 基础状态 ---
     const isSimpleMode = ref(false);
     const isSettingsOpen = ref(false);
     const activeTab = ref("界面布局");
-    // 核心菜单状态
+
+    // --- 右键菜单 ---
     const contextMenu = reactive({ visible: false, x: 0, y: 0, target: null });
 
-    // --- 核心修复：全局右键菜单逻辑 ---
+    // --- 壁纸系统 ---
+    const defaultWallpapers = [
+      {
+        id: "def1",
+        urls: {
+          regular:
+            "https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2670&auto=format&fit=crop",
+        },
+      },
+      {
+        id: "def2",
+        urls: {
+          regular:
+            "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=2574&auto=format&fit=crop",
+        },
+      },
+      {
+        id: "def3",
+        urls: {
+          regular:
+            "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2670&auto=format&fit=crop",
+        },
+      },
+      {
+        id: "def4",
+        urls: {
+          regular:
+            "https://images.unsplash.com/photo-1477346611705-65d1883cee1e?q=80&w=2670&auto=format&fit=crop",
+        },
+      },
+    ];
+    const wallpapers = ref([...defaultWallpapers]);
+    const currentWallpaper = ref(defaultWallpapers[0].urls.regular);
+    const unsplashQuery = ref("");
+
+    // 关键修改：从全局配置读取 Key，不再从 localStorage 读取
+    const unsplashAccessKey = ref(
+      window.GSNAV_CONFIG ? window.GSNAV_CONFIG.unsplashKey : "",
+    );
+
+    const isLoadingWallpapers = ref(false);
+    const wallpaperTags = [
+      "Nature",
+      "Architecture",
+      "Cyberpunk",
+      "Minimalist",
+      "Space",
+      "Night",
+      "Anime",
+    ];
+
+    // --- 右键逻辑 (保持不变) ---
     const onGlobalContextMenu = (e) => {
-      // 1. 阻止浏览器默认右键菜单
       e.preventDefault();
-
-      // 2. 判断点击目标
-      // 尝试向上查找是否点击了 .app-item (图标)
       const appItem = e.target.closest(".app-item");
-
-      // 如果点到了图标，target 就是那个图标的数据；否则 target 为 null (代表背景)
       let targetData = null;
       if (appItem) {
         const id = parseInt(appItem.getAttribute("data-id"));
-        // 在桌面或 Dock 中查找对应的数据
         targetData =
           desktopApps.value.find((i) => i.id === id) ||
           dockApps.value.find((i) => i.id === id);
-
-        // 如果是文件夹里的图标（需要额外处理，这里暂简化为不处理文件夹内的右键，或者你可以加逻辑）
         if (!targetData && openedFolder.value) {
           targetData = openedFolder.value.children.find((i) => i.id === id);
         }
       }
-
-      // 3. 设置菜单目标
       contextMenu.target = targetData;
-
-      // 4. 计算菜单位置 (防止溢出屏幕)
       let x = e.clientX;
       let y = e.clientY;
       const menuWidth = 200;
-      const menuHeight = targetData ? 220 : 150; // 有目标时菜单更高
-
+      const menuHeight = targetData ? 220 : 160;
       if (x + menuWidth > window.innerWidth) x -= menuWidth;
       if (y + menuHeight > window.innerHeight) y -= menuHeight;
-
       contextMenu.x = x;
       contextMenu.y = y;
       contextMenu.visible = true;
     };
 
-    // 点击左键关闭菜单
     const closeContextMenu = () => (contextMenu.visible = false);
 
-    // --- 文件夹逻辑 ---
-    const openedFolder = ref(null);
+    // --- 壁纸逻辑修改 ---
+    const fetchUnsplashWallpapers = async (query = "") => {
+      // 如果没有配置 Key，不再弹窗，直接显示默认（UI层有提示）
+      if (!unsplashAccessKey.value) {
+        console.warn("Unsplash Key 未配置，请在后台设置。");
+        wallpapers.value = [...defaultWallpapers];
+        return;
+      }
 
+      isLoadingWallpapers.value = true;
+      const q = query || unsplashQuery.value || "random";
+
+      try {
+        const res = await fetch(
+          `https://api.unsplash.com/photos/random?client_id=${unsplashAccessKey.value}&count=12&query=${q}&orientation=landscape`,
+        );
+
+        if (res.status === 403) throw new Error("API 调用次数超限或 Key 无效");
+        if (res.status === 401) throw new Error("Key 无效");
+
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          wallpapers.value = data;
+          unsplashQuery.value = q;
+        }
+      } catch (e) {
+        console.error(e);
+        // 失败静默回退，避免弹窗打扰
+        wallpapers.value = [...defaultWallpapers];
+      } finally {
+        isLoadingWallpapers.value = false;
+      }
+    };
+
+    // 移除了 saveUnsplashKey 函数，因为现在是在后台保存
+
+    const setWallpaper = (url) => {
+      currentWallpaper.value = url;
+      localStorage.setItem("gs_current_wallpaper", url);
+    };
+
+    // --- 文件夹与应用逻辑 (保持不变) ---
+    const openedFolder = ref(null);
     const handleAppClick = (item) => {
       if (item.type === "folder") {
         openedFolder.value = item;
       } else {
-        // 这里模拟打开链接
-        console.log("打开链接:", item.url || item.name);
         if (item.url) window.open(item.url, "_blank");
       }
       closeContextMenu();
     };
-
     const createFolder = () => {
       desktopApps.value.push({
         id: Date.now(),
@@ -89,21 +161,17 @@ createApp({
       });
       closeContextMenu();
     };
-
     const deleteItem = (item) => {
       if (!item) return;
       const removeById = (list) => list.filter((i) => i.id !== item.id);
-
       desktopApps.value = removeById(desktopApps.value);
       dockApps.value = removeById(dockApps.value);
-
-      if (openedFolder.value) {
+      if (openedFolder.value)
         openedFolder.value.children = removeById(openedFolder.value.children);
-      }
       closeContextMenu();
     };
 
-    // --- 数据 ---
+    // --- 数据与引擎 (保持不变) ---
     const desktopApps = ref([
       {
         id: 1,
@@ -111,6 +179,7 @@ createApp({
         type: "app",
         color: "#00A1D6",
         icon: "ri-bilibili-fill",
+        url: "https://bilibili.com",
       },
       {
         id: 2,
@@ -118,35 +187,47 @@ createApp({
         type: "app",
         color: "#171515",
         icon: "ri-github-fill",
+        url: "https://github.com",
       },
       {
         id: 3,
-        name: "Code",
-        type: "app",
-        color: "#2F80ED",
-        icon: "ri-code-line",
-      },
-      {
-        id: 4,
         name: "ChatGPT",
         type: "app",
         color: "#10A37F",
         icon: "ri-openai-fill",
+        url: "https://chat.openai.com",
       },
       {
-        id: 5,
+        id: 4,
         name: "知乎",
         type: "app",
         color: "#0084FF",
         icon: "ri-zhihu-fill",
+        url: "https://zhihu.com",
+      },
+      {
+        id: 5,
+        name: "YouTube",
+        type: "app",
+        color: "#FF0000",
+        icon: "ri-youtube-fill",
+        url: "https://youtube.com",
       },
     ]);
     const dockApps = ref([
-      { id: 101, name: "Finder", icon: "ri-finder-fill" },
-      { id: 102, name: "Safari", icon: "ri-safari-fill" },
+      {
+        id: 101,
+        name: "Google",
+        icon: "ri-google-fill",
+        url: "https://google.com",
+      },
+      {
+        id: 102,
+        name: "Settings",
+        icon: "ri-settings-3-fill",
+        action: "settings",
+      },
     ]);
-
-    // --- 搜索引擎 & 其他 ---
     const engines = ref([
       {
         id: "baidu",
@@ -171,7 +252,6 @@ createApp({
     const showEngineMenu = ref(false);
     const searchText = ref("");
     const editingEngine = ref(null);
-
     const currentEngine = computed(
       () => engines.value[currentEngineKey.value] || engines.value[0],
     );
@@ -183,7 +263,6 @@ createApp({
       if (searchText.value)
         window.open(currentEngine.value.url + searchText.value);
     };
-
     const startEditEngine = (e) => {
       editingEngine.value = JSON.parse(JSON.stringify(e));
     };
@@ -205,18 +284,12 @@ createApp({
         url: "https://",
       });
 
+    // --- 时间与天气 ---
     const timeHourMinute = ref("");
     const timeSecond = ref("");
     const dateString = ref("");
     const lunarData = reactive({ text: "", yi: "", ji: "" });
     const settings = reactive({ showDock: true, bgBlur: 0 });
-    const wallpapers = [
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2670&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=2574&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2670&auto=format&fit=crop",
-    ];
-    const currentWallpaper = ref(wallpapers[0]);
-
     const updateTime = () => {
       const now = new Date();
       timeHourMinute.value = now.toLocaleTimeString("en-GB", {
@@ -231,25 +304,21 @@ createApp({
         lunarData.yi = l.getDayYi().slice(0, 3).join(" ");
       }
     };
-
     const openSettings = (tab) => {
       activeTab.value = tab;
       isSettingsOpen.value = true;
       closeContextMenu();
     };
 
-    // --- 生命周期 ---
     onMounted(() => {
       updateTime();
       setInterval(updateTime, 1000);
       fetchWeather();
-
-      // 绑定全局右键事件 (关键修复)
+      const savedWp = localStorage.getItem("gs_current_wallpaper");
+      if (savedWp) currentWallpaper.value = savedWp;
       document.addEventListener("contextmenu", onGlobalContextMenu);
-      // 绑定全局点击事件 (关闭菜单)
       document.addEventListener("click", closeContextMenu);
     });
-
     onUnmounted(() => {
       document.removeEventListener("contextmenu", onGlobalContextMenu);
       document.removeEventListener("click", closeContextMenu);
@@ -265,14 +334,12 @@ createApp({
       lunarData,
       desktopApps,
       dockApps,
-      contextMenu, // 无需导出 handleContextMenu，因为是全局监听
+      contextMenu,
       openedFolder,
       createFolder,
       handleAppClick,
       deleteItem,
       settings,
-      currentWallpaper,
-      wallpapers,
       engines,
       currentEngine,
       showEngineMenu,
@@ -287,6 +354,15 @@ createApp({
       tabs: ["界面布局", "壁纸风格", "搜索引擎", "关于我们"],
       activeTab,
       openSettings,
+      wallpapers,
+      currentWallpaper,
+      setWallpaper,
+      unsplashQuery,
+      unsplashAccessKey,
+      fetchUnsplashWallpapers,
+      isLoadingWallpapers,
+      wallpaperTags,
+      defaultWallpapers,
     };
   },
 }).mount("#gs-app");
