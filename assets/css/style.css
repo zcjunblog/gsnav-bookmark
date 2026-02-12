@@ -1,0 +1,31 @@
+/* assets/css/style.css */
+@import url('https://unpkg.com/remixicon@3.5.0/fonts/remixicon.css');
+
+body { margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; overflow: hidden; }
+
+/* 毛玻璃组件 */
+.glass-panel {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+.glass-dark {
+    background: rgba(30, 30, 30, 0.75);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+/* 动画工具类 */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.slide-up-enter-active, .slide-up-leave-active { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+.slide-up-enter-from, .slide-up-leave-to { transform: translateY(30px); opacity: 0; }
+
+/* 滚动条隐藏 */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.text-shadow { text-shadow: 0 2px 8px rgba(0,0,0,0.4); }

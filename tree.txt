@@ -1,0 +1,13 @@
+.
+├── assets
+│   ├── css
+│   │   └── style.css
+│   └── js
+│       ├── app.js
+│       └── weather.js
+├── gsnav-bookmark.php
+├── templates
+│   └── app.php
+└── tree.txt
+
+5 directories, 6 files
